@@ -258,7 +258,7 @@ def cron_checkup():
 @shared_task(ignore_results=False, name="Drive Notification")
 def drive_notification(drive_title, company_name):
     text = f"{company_name} has started drive for {drive_title}. Apply now http://127.0.0.1:5173"
-    url = "https://chat.googleapis.com/v1/spaces/AAQAY3Ls2oQ/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=N_oNfbOy7957ubOBEKjClwJeUaWhNEL8EyLZzORVl8Q"
+    url = "Your google chat api key"
     try:
         response = httpx.post(url, json={"text": text})
         response.raise_for_status()
