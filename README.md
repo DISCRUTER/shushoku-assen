@@ -1,200 +1,314 @@
 # Shushoku Assen
-A placement protal that stremlines the hiring process. Helping companies find best talent and students best opportunity.
+
+A placement portal that streamlines the hiring process, helping companies find the best talent and students the best opportunities.
+
 > [!NOTE]
-> This project is kind of like `Linkedin - Social Networking` for internal placements in college.  
+> This project is kind of like `Linkedin - Social Networking` for internal placements in college.
 
 ## Highlights
-- Daily activity tracking and habit logging
-- Visualization dashboard using Chart.js
-- Summary analytics with date filtering
-- Responsive UI built with VueJS
-- Secure password hashing and user session handling
-- Browse live placement drives, apply to a drive with a single click
-- Track every application and placement offers
-- Post drives, shortlist candidates, and manage your entire recruitment pipeline in one place
-- Weekly activity reports mailed to user
-- On demand reports for users
-- Google Chat notification when new drives open
 
-## Endpoints & Models
+- **Role based access** for Admin, Company and Student (`role_required` on endpoints)
+- Browse live placement drives and **apply to a drive with a single click**
+- Track every application and placement offer in one place
+- Companies can **post drives, shortlist candidates, and manage the entire recruitment pipeline**
+- Admin approves drives and company registrations
+- **Visualization dashboards** built with Chart.js
+- **Filter-driven analytics** (students, companies, drives, applications and placements)
+- **On-demand PDF reports** for admin, student, company, drive and placement offer
+- **Periodic report emails** dispatched to students with their placement activity attached
+- **Google Chat notification** when a new drive opens
+- **Secure password hashing** (werkzeug) and **JWT cookie-based session handling**
+- Background scheduling with **Celery + Redis** (report mails and drive cleanup)
 
-### Entities
-- Student: Who apply in the drives.
-- Company: Who start the drives.
-- Admin: Who approves the drives and registrations.
+## Tech Stack
 
-### Resources
-- Drive: Campaign started by company, approved by Admin and participated by students.
-- Application: Submitted by the students who apply to the drive.
-- Placement: Offered to students who are selected.
+### Backend (`backend/`)
+- [Flask](https://flask.palletsprojects.com/) + [Flask-Smorest](https://flask-smorest.readthedocs.io/) — REST API with OpenAPI/Swagger docs (`/swagger-ui`)
+- [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/) — ORM
+- [Flask-JWT-Extended](https://flask-jwt-extended.readthedocs.io/) — JWT auth with cookie + CSRF support
+- [Flask-Caching](https://flask-caching.readthedocs.io/) — response caching
+- [Flask-CORS](https://flask-cors.readthedocs.io/) — cross-origin support
+- [Celery](https://docs.celeryq.dev/) + Redis — async tasks, webhooks and scheduled jobs
+- [WeasyPrint](https://doc.courtbouillon.org/weasyprint/) — PDF report generation
+- [httpx](https://www.python-httpx.org/) — Google Chat webhook calls
+- [Werkzeug](https://werkzeug.palletsprojects.com/) — password hashing
 
-### Entities & Resource Based Endpoint
-- Role
-    - **GET**/utils/roles : Get all roles. -> All
-    - **POST**/utils/roles : Create a new role. -> Admin
+### Frontend (`frontend/`)
+- [Vue 3](https://vuejs.org/) + [Vite](https://vite.dev/)
+- [Pinia](https://pinia.vuejs.org/) — state management
+- [Vue Router](https://router.vuejs.org/) — routing
+- [Chart.js](https://www.chartjs.org/) + [vue-chartjs](https://vue-chartjs.org/) — dashboards (incl. funnel chart)
+- [Axios](https://axios-http.com/) — HTTP client
+- [dayjs](https://day.js.org/) — date handling
 
-- Branch
-    - **GET**/utils/branches : Get all branches. -> All
-    - **POST**/utils/branches : Create a new branch. -> Admin
+## Project Structure
 
-- Academic Degree
-    - **GET**/utils/academic_degrees : Get all academic degrees. -> All
-    - **POST**/utils/academic_degrees : Create a new academic degree. -> Admin
+```
+.
+├── backend/                       # Flask API + Celery tasks
+│   ├── app.py                     # App factory, blueprints, celery schedule
+│   ├── celery_config.py           # Broker / result backend config
+│   ├── pyproject.toml             # Python deps (uv)
+│   └── application/
+│       ├── api/                   # Blueprints: auth, utils, student, company,
+│       │                          #   drive, applied, placement, analytics, download
+│       ├── models.py              # SQLAlchemy models
+│       ├── schema.py              # Marshmallow schemas
+│       ├── tasks.py               # Celery tasks (reports, mail, webhooks, cleanup)
+│       ├── mail.py                # SMTP mail helper
+│       ├── dummy_data.py          # Seeds DB with demo data on startup
+│       └── factory.py             # Extension init + role_required decorator
+└── frontend/                      # Vue 3 + Vite SPA
+    ├── index.html
+    └── src/
+        ├── router.js              # Vue Router routes
+        ├── stores/auth.js         # Pinia auth store
+        ├── axios.js               # Axios instance with CSRF/cookie handling
+        └── components/            # Views & reusable components
+```
 
-- Industry
-    - **GET**/utils/industries : Get all industries. -> All
-    - **POST**/utils/industries : Create a new industry. -> Admin
+## Getting Started
 
-- Skill
-    - **GET**/utils/skills : Get all skills. -> All
-    - **POST**/utils/skills : Create a new skill. -> Admin
+### Prerequisites
+- Python **>= 3.13** ([uv](https://docs.astral.sh/uv/) recommended)
+- Node.js + npm
+- [Redis](https://redis.io/) (Celery broker, default `localhost:6379`)
 
-- Student
-    - **GET**/students : Get all students. -> Admin
-    - **POST**/students : Register a student. -> Student
-    - **GET**/students/student_id : Retrieve info about self. -> Admin, Company & Student
-    - **PATCH**/students/student_id : Update the profile. -> Student & Admin
-    - **DELETE**/student/student_id : Delete a student. -> Admin & Student
+### Backend
 
-- Company
-    - **GET**/company : Get all companies. -> Admin & Student
-    - **POST**/company : Register a company -> Company
-    - **GET**/company/company_id -> Retrieve info about a company. -> Admin, Student & Company
-    - **PATCH**/company/company_id -> Update company info. -> Admin & Company
-    - **DELETE**/company/company_id -> Update company info. -> Admin & Company
+```bash
+cd backend
+uv sync                  # install dependencies
+uv run python app.py     # start the API on http://localhost:3000
+```
 
-- Drive
-    - **GET**/drives : Get all the drives. -> Company, Admin & Student
-        - Student : Checks the profiles and shows relevent drives.
-        - Company : Retrieves all the drives they are hosting.
-        - Admin : All drives.
-    - **POST**/drives : Create a drive. -> Company
-    - **GET**/drives/drive_id : Retrieve info about a drive. -> Admin, Student & Company
-        - Admin : Can access all the drives.
-        - Student : Can access all but mostly relevant to them.
-        - Company : Only drives they hosted.
-    - **PATCH**/drives/drive_id : Update a drive info. -> Admin
+- On startup the app creates the SQLite database (`database.db`) and **seeds it with demo data**.
+- Interactive API docs are available at `http://localhost:3000/swagger-ui`.
 
-- Application
-    - **GET**/applications : Get all the applications -> Admin, Student & Company
-        - Student : Retrieves only application of a particular student.
-    - **POST**/applications : Submit an application for a a drive. -> Student
-    - **GET**/applications/application_id : Get a particular application -> Admin, Student & Company
-        - Admin : All applications.
-        - Student : All the applications they submitted.
-        - Company : Applications relevant to their drives.
-    - **PATCH**/applications/application_id : Update the status of application -> Company & Admin
+#### Celery (worker + beat)
 
-- Placement
-    - **GET**/placements : Get all placement offers made. -> Admin
-    - **POST**/placements : Offer a placement. -> Company
-    - **GET**/placements/placement_id : Retrieve a placement offer. -> Admin, Student & Company
-        - Admin : All placements offers.
-        - Student : Placements offered to them.
-        - Company : Placement they offered.
+```bash
+# terminal 1 - worker
+uv run celery -A app.celery worker --loglevel=info
 
-- Analytics
-    - **GET**/analytics/summary : Get a summary of all the data. -> Admin
-    - **GET**/analytics/students : Get student related analytics. -> Admin
-    - **GET**/analytics/companies : Get company related analytics. -> Admin
-    - **GET**/analytics/drives : Get drive related analytics. -> Admin & Company
-    - **GET**/analytics/placements : Get placement related analytics. -> Admin
+# terminal 2 - beat (scheduled tasks)
+uv run celery -A app.celery beat --loglevel=info
+```
 
-- Downloads
-    - **GET**/report -> Admin only.
-    - **GET**/student/student_id/report -> Admin, Student
-    - **GET**/placement/placement_id/report -> All
-    - **GET**/company/company_id/report -> Admin, Company
-    - **GET**/drive/drive_id/report -> Admin, Company
+Scheduled tasks (defined in `app.py`):
+- **Monthly** — emails each student their placement activity report.
+- **Daily** — closes drives whose deadline has passed.
 
-### Models and Fields
-- Base Model(Abstract)
-    - ID
-    - created_at
-    - updated_at
+#### Mail sink
 
-#### Utility Models
-- Role : Base Model
-    - name
-    - users -> one-many, List of users of that role
-    - description
+Report emails use SMTP on `localhost:1025` (see `application/mail.py`). Point a local mail catcher like [MailHog](https://github.com/mailhog/MailHog) or `aiosmtpd` at that port to inspect outgoing mail.
 
-- Branch : Base Model
-    - name
-    - description
-    - students -> one-many, list of all the students
+#### Google Chat webhook
 
-- Academic Degree : Base Model
-    - name
-    - description
-    - students -> one-many, list of all the students
+The `drive_notification` task posts to a Google Chat webhook when a drive is created. Set the webhook URL in `backend/application/tasks.py`.
 
-- Industry : Base Model
-    - name
-    - description
-    - companies -> one-many, list of all the companies
+### Frontend
 
-- Skills : Base Model
-    - name
-    - description
+```bash
+cd frontend
+npm install
+npm run dev      # start the Vite dev server on http://localhost:5173
+```
 
-#### User Models
-- User : Base Model
-    - email
-    - password
-    - blacklisted
-    - role -> FK:RoleName
-    - Info -> one-one, Student:Student Details, Company:Company Details, role dependent
+The Vite dev server proxies `/api` and `/auth` to the backend at `http://127.0.0.1:3000` (see `frontend/vite.config.js`).
 
-- Details(Abstract)
-    - ID -> FK:UserID
+### Demo Accounts
 
-- Student Details : Details
-    - first_name
-    - last_name
-    - github
-    - linkedin
-    - branch -> FK:BranchID
-    - year
-    - academic_degree -> FK:AcademicDegreeID
-    - cgpa
-    - application -> one-many, List of all the application submitted by student, relation:Applications
-    - placement -> one-many, List of all the placement offers, relation:Placements
-    - skills -> many-many, list of all the skills student has, relation:Skills
+Seeded by `backend/application/dummy_data.py`, password `password` for all:
 
-- Company Details : Details
-    - registered_name
-    - description
-    - industry -> FK:IndustryID
-    - location
-    - contact_email
-    - contact_phone
-    - website
-    - status
-    - drives -> one-many, list of all the drives hosted, relation:Drives
-    - placements -> one-many, list of all the offers made, relation:Placements
+| Role    | Email                    | Notes                                  |
+| ------- | ------------------------ | -------------------------------------- |
+| Admin   | `user@admin.com`         | Full access                            |
+| Student | `user@student1.com`      | Branch: Computer Science               |
+| Student | `user@student2.com`      | Branch: Data Science                   |
+| Student | `user@student3.com`      | Branch: Mechanical Engineering         |
+| Company | `hr@techcorp.com`        | Approved — can host drives             |
+| Company | `hr@financeltd.com`      | Pending approval                       |
+| Company | `hr@badcompany.com`      | Rejected                               |
 
-#### Operational Models
-- Drives : Base Model
-    - company_id -> FK:Company
-    - title
-    - description
-    - openings
-    - salary
-    - salary_type
-    - deadline
-    - status
-    - skills_required -> many-many, list of all the skills required, relation:Skills
-    - application -> one-many, list of all the application, relation:Applications
-    - placements -> one-many, list of all the placement offers made., relation:Placements
+## Entities
 
-- Applications : Base Model
-    - drive_id -> FK:DriveID
-    - student_id -> FK:StudentID
-    - status
+- **Student** — applies to drives.
+- **Company** — hosts drives.
+- **Admin** — approves drives and company registrations, manages utilities.
 
-- Placements : Base Model
-    - student_id -> FK:StudentID
-    - company_id -> FK:CompanyID
-    - drive_id -> FK:DriveID
-    - joining_date
+## Resources
+
+- **Drive** — campaign started by a company, approved by Admin, participated in by students.
+- **Application** — submitted by a student for a drive.
+- **Placement** — offer made to a selected student.
+
+## API Endpoints
+
+All endpoints except `POST /auth/v1/login`, `POST /auth/v1/logout`, `POST /api/v1/students/` and `POST /api/v1/company/` require authentication (JWT). `*` indicates any authenticated user.
+
+### Auth — prefix `/auth/v1`
+
+- **POST** `/auth/v1/login` — Log in with email + password. -> All
+- **POST** `/auth/v1/logout` — Log out and clear the access cookie. -> All
+
+### Utilities — prefix `/api/v1/utils`
+
+- **GET** `/api/v1/utils/roles` : Get all roles. -> All
+- **POST** `/api/v1/utils/roles` : Create a role. -> Admin
+- **GET** `/api/v1/utils/branch` : Get all branches. -> All
+- **POST** `/api/v1/utils/branch` : Create a branch. -> Admin
+- **GET** `/api/v1/utils/academic-degree` : Get all academic degrees. -> All
+- **POST** `/api/v1/utils/academic-degree` : Create an academic degree. -> Admin
+- **GET** `/api/v1/utils/industry` : Get all industries. -> All
+- **POST** `/api/v1/utils/industry` : Create an industry. -> Admin
+- **GET** `/api/v1/utils/skills` : Get all skills. -> All
+- **POST** `/api/v1/utils/skills` : Create a skill. -> Admin
+
+### Students — prefix `/api/v1/students`
+
+- **GET** `/api/v1/students/` : Get all students (filter by branch, year, degree, name, blacklisted). -> Admin
+- **POST** `/api/v1/students/` : Register a student. -> All (open)
+- **GET** `/api/v1/students/<student_id>` : Retrieve a student's profile. -> All authenticated
+- **PATCH** `/api/v1/students/<student_id>` : Update the profile (only Admin may set `blacklisted`). -> Student & Admin
+- **DELETE** `/api/v1/students/<student_id>` : Delete a student. -> Student & Admin
+
+### Companies — prefix `/api/v1/company`
+
+- **GET** `/api/v1/company/` : Get all companies (filter by industry, status, name, blacklisted). -> Admin & Student
+- **POST** `/api/v1/company/` : Register a company. -> All (open)
+- **GET** `/api/v1/company/<company_id>` : Retrieve a company's profile. -> All authenticated
+- **PATCH** `/api/v1/company/<company_id>` : Update company info (only Admin may set `status`/`blacklisted`). -> Admin & Company
+- **DELETE** `/api/v1/company/<company_id>` : Delete a company. -> Admin & Company
+
+### Drives — prefix `/api/v1/drives`
+
+- **GET** `/api/v1/drives/` : Get all drives (filter by company, title, job_type, status). -> All authenticated
+- **POST** `/api/v1/drives/` : Create a drive (triggers Google Chat notification). -> Company
+- **GET** `/api/v1/drives/<drive_id>` : Retrieve drive info. -> All authenticated
+- **PATCH** `/api/v1/drives/<drive_id>` : Update drive info (e.g. approve, change status). -> Admin & Company
+- **DELETE** `/api/v1/drives/<drive_id>` : Delete a drive. -> Admin
+
+### Applications — prefix `/api/v1/applications`
+
+- **GET** `/api/v1/applications/` : Get applications (filter by student, drive, company). -> All authenticated
+- **POST** `/api/v1/applications/` : Apply to a drive. -> Student
+- **GET** `/api/v1/applications/<application_id>` : Retrieve an application. -> All authenticated
+- **PATCH** `/api/v1/applications/<application_id>` : Update application status (shortlist / select / reject / offer). -> Admin & Company
+
+### Placements — prefix `/api/v1/placements`
+
+- **GET** `/api/v1/placements/` : Get placement offers (filter by student, company, drive). -> All authenticated
+- **POST** `/api/v1/placements/` : Offer a placement. -> Company
+- **GET** `/api/v1/placements/<placement_id>` : Retrieve a placement offer. -> All authenticated
+
+### Analytics — prefix `/api/v1/analytics`
+
+- **GET** `/api/v1/analytics/students` : Students by branch / academic degree / total. -> All authenticated
+- **GET** `/api/v1/analytics/company` : Companies by industry / total. -> All authenticated
+- **GET** `/api/v1/analytics/drives` : Drives by status / job type / top companies / total. -> All authenticated
+- **GET** `/api/v1/analytics/application` : Applications by status / total (filter by student, drive, company). -> All authenticated
+- **GET** `/api/v1/analytics/placements` : Placements by company / total (filter by student, company, drive). -> All authenticated
+
+### Downloads — prefix `/api/v1/downloads`
+
+Report endpoints dispatch a Celery task and return a task `id`; fetch the finished file from `GET /api/v1/downloads/<id>`.
+
+- **GET** `/api/v1/downloads/report` : Generate the admin report (PDF). -> Admin
+- **GET** `/api/v1/downloads/student/<student_id>/report` : Generate a student report (PDF). -> Admin & Student
+- **GET** `/api/v1/downloads/company/<company_id>/report` : Generate a company report (PDF). -> Admin & Company
+- **GET** `/api/v1/downloads/drive/<drive_id>/report` : Generate a drive report (PDF). -> Admin & Company
+- **GET** `/api/v1/downloads/placement/<placement_id>/report` : Generate a placement offer (PDF). -> All authenticated
+- **GET** `/api/v1/downloads/<id>` : Retrieve a generated report by task id. -> All authenticated
+
+## Models and Fields
+
+### Base Model (abstract)
+
+- `id` — UUID string (primary key)
+- `created_at` — timestamp
+- `updated_at` — timestamp
+
+### Utility Models
+
+- **Role** : Base Model
+    - `name`, `description`
+    - `users` — one-many, users with this role
+
+- **Branch** : Base Model
+    - `name`, `description`
+    - `students` — one-many, students in this branch
+
+- **AcademicDegree** : Base Model
+    - `name`, `description`
+    - `students` — one-many, students of this degree
+
+- **Industry** : Base Model
+    - `name`, `description`
+    - `companies` — one-many, companies in this industry
+
+- **Skill** : Base Model
+    - `name`, `description`
+    - linked to students (`student_skills`) and drives (`skills_required`) via many-many join tables
+
+### User Models
+
+- **User** : Base Model
+    - `email` — unique
+    - `password` — hashed (werkzeug)
+    - `blacklisted` — boolean
+    - `role_id` — FK to `roles.id`
+    - `student_details` / `company_details` — one-one, role dependent
+    - `details` — property resolving the role-appropriate details object
+
+- **Details (abstract)**
+    - `id` — FK to `users.id`
+
+- **StudentDetails** : Details
+    - `first_name`, `last_name`
+    - `about`
+    - `github`, `linkedin`
+    - `branch_id` — FK to `branches.id`
+    - `year`
+    - `academic_degree_id` — FK to `academic_degrees.id`
+    - `cgpa`
+    - `skills` — many-many with `skills`
+    - `applications` — one-many with `applications`
+    - `placements` — one-many with `placements`
+
+- **CompanyDetails** : Details
+    - `registered_name`
+    - `description`
+    - `industry_id` — FK to `industries.id`
+    - `location`
+    - `contact_email`
+    - `contact_phone`
+    - `website`
+    - `status` — enum: `pending` | `approved` | `rejected`
+    - `drives` — one-many with `drives`
+    - `placements` — one-many with `placements`
+
+### Operational Models
+
+- **Drive** : Base Model
+    - `company_id` — FK to `company_details.id`
+    - `title`, `description`
+    - `openings`
+    - `salary`
+    - `job_type` — enum: `internship` | `part-time` | `full-time`
+    - `deadline`
+    - `status` — enum: `pending` | `open` | `closed` | `rejected`
+    - `skills_required` — many-many with `skills`
+    - `applications` — one-many with `applications`
+    - `placements` — one-many with `placements`
+
+- **Application** : Base Model
+    - `drive_id` — FK to `drives.id`
+    - `student_id` — FK to `student_details.id`
+    - `status` — enum: `applied` | `shortlisted` | `selected` | `rejected` | `offered`
+
+- **Placement** : Base Model
+    - `student_id` — FK to `student_details.id`
+    - `company_id` — FK to `company_details.id`
+    - `drive_id` — FK to `drives.id`
+    - `joining_date`
