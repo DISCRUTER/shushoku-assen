@@ -70,11 +70,44 @@ A placement portal that streamlines the hiring process, helping companies find t
 ## Getting Started
 
 ### Prerequisites
-- Python **>= 3.13** ([uv](https://docs.astral.sh/uv/) recommended)
-- Node.js + npm
-- [Redis](https://redis.io/) (Celery broker, default `localhost:6379`)
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose (full-stack deployment), **or** for local development:
+  - Python **>= 3.13** ([uv](https://docs.astral.sh/uv/) recommended)
+  - Node.js + npm
+  - [Redis](https://redis.io/) (Celery broker, default `localhost:6379`)
 
-### Backend
+### Docker (full stack)
+
+One command builds and starts every service — Redis, the Flask API, Celery worker + beat, and the frontend (production build served by nginx):
+
+```bash
+docker compose up --build
+```
+
+| Service   | URL                                  |
+| --------- | ------------------------------------ |
+| Frontend  | http://localhost:5173                |
+| API       | http://localhost:3000                |
+| Swagger   | http://localhost:3000/swagger-ui     |
+
+How it works:
+
+- Services start in order: `redis` → `backend` (API) → `worker` + `beat` (reuse the backend image with overridden commands) → `frontend`.
+- `worker` and `beat` wait on the API healthcheck (`GET /openapi.json`) so the SQLite database is seeded exactly once.
+- Data persists across restarts in named volumes:
+  - `sqlite-data` → `/app/instance/database.db` (SQLite database)
+  - `reports` → `/app/static/reports` (generated PDFs, written by the worker and served by the API)
+- Celery connects to Redis via `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` (`redis://redis:6379/{0,1}`).
+- The frontend container serves the built SPA same-origin and reverse-proxies `/api` and `/auth` to the backend, so JWT cookies + CSRF work without CORS changes.
+
+Useful commands:
+
+```bash
+docker compose logs -f backend    # follow one service
+docker compose down               # stop (named volumes persist)
+docker compose down -v            # stop and wipe the database + reports
+```
+
+### Backend (local development)
 
 ```bash
 cd backend
