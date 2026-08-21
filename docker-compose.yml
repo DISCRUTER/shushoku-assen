@@ -1,0 +1,86 @@
+name: shushoku-assen
+
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: shushoku-assen/backend
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    ports:
+      - "3000:3000"
+    volumes:
+      # SQLite database (Flask-SQLAlchemy resolves sqlite:///database.db
+      # against the app instance path -> /app/instance/database.db)
+      - sqlite-data:/app/instance
+      # PDF reports are written here by the Celery worker and served by the API,
+      # so both containers must share this directory
+      - reports:/app/static/reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/openapi.json')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    image: shushoku-assen/backend
+    command: celery -A app.celery worker --loglevel=info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - sqlite-data:/app/instance
+      - reports:/app/static/reports
+    depends_on:
+      redis:
+        condition: service_healthy
+      # Wait until the API has seeded the SQLite DB so both processes
+      # don't race on data_creation()
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: ./backend
+    image: shushoku-assen/backend
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - sqlite-data:/app/instance
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: shushoku-assen/frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlite-data:
+  reports:
